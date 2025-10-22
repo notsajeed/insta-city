@@ -1,0 +1,6 @@
+moviepy==1.0.3
+pandas
+wikipedia
+requests
+instagrapi
+python-dotenv
