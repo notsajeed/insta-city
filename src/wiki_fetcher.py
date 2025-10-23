@@ -25,7 +25,7 @@ def split_text(text, max_chars=100):
     char_count = 0
 
     for word in words:
-        char_count += len(word) + 1  # account for space
+        char_count += len(word) + 1 
         if char_count > max_chars:
             if current_chunk:
                 chunks.append(" ".join(current_chunk))
@@ -52,13 +52,12 @@ def fetch_summary(city_ascii, country="", sentences=5, max_chars_per_chunk=100):
         summary = wikipedia.summary(title, sentences=sentences)
         page = wikipedia.page(title, auto_suggest=False)
 
-        # Split summary into manageable chunks
         chunks = split_text(summary, max_chars=max_chars_per_chunk)
 
         return {
             "title": page.title,
             "summary": summary,
-            "chunks": chunks,  # ready for captions
+            "chunks": chunks, 
             "url": page.url,
         }
 
@@ -91,10 +90,3 @@ def save_wiki_data(city_name, data, base_dir="data/cities"):
     print(f"[INFO] Saved wiki data for {city_name} → {wiki_path}")
     return wiki_path
 
-
-# --- Standalone test ---
-if __name__ == "__main__":
-    city, country = "Tokyo", "Japan"
-    data = fetch_summary(city, country, sentences=5, max_chars_per_chunk=100)
-    save_wiki_data(city, data)
-    print(json.dumps(data, indent=2))

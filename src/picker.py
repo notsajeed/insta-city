@@ -30,13 +30,11 @@ def save_posted(record):
 def pick_city_pandas(csv_path='cities.csv'):
     df = pd.read_csv(csv_path)
     posted = load_posted_set()
-    # prefer rows not posted yet
     df['unique_id'] = df.apply(lambda r: str(int(r.get('id'))) if pd.notna(r.get('id')) else f"{r['city_ascii']}|{r.get('country','')}", axis=1)
     not_posted = df[~df['unique_id'].isin(posted)]
     if not not_posted.empty:
         row = not_posted.sample(n=1).iloc[0]
     else:
-        # all posted — fallback to random with replacement
         row = df.sample(n=1).iloc[0]
     return {
         'city': row['city'],
@@ -47,7 +45,6 @@ def pick_city_pandas(csv_path='cities.csv'):
         'id': int(row['id']) if pd.notna(row.get('id')) else None
     }
 
-# memory-light reservoir sampling for gigantic CSVs
 def pick_city_reservoir(csv_path='cities.csv'):
     import csv
     posted = load_posted_set()
@@ -60,7 +57,6 @@ def pick_city_reservoir(csv_path='cities.csv'):
             if unique_id in posted:
                 continue
             count += 1
-            # reservoir algorithm: replace with 1/count probability
             if random.randrange(count) == 0:
                 chosen = row
     if chosen is None:

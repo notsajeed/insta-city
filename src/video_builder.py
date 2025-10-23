@@ -8,7 +8,7 @@ from utils import text_to_image
 def build_video(
     image_paths,
     title_text,
-    facts_chunks=None,  # list of text chunks
+    facts_chunks=None, 
     output_path="assets/tmp/final.mp4",
     fps=30,
     duration_per_image=3,
@@ -22,7 +22,7 @@ def build_video(
     if not image_paths:
         raise ValueError("No images provided for the video.")
 
-    w, h = 1080, 1920  # portrait
+    w, h = 1080, 1920 
     clips = []
 
     # --- Create image clips with zoom/fade effects ---
@@ -89,21 +89,3 @@ def build_video(
     print("[✅] Video build complete.")
     return output_path
 
-
-# --- Example usage ---
-if __name__ == "__main__":
-    images = [
-        "data/cities/Tokyo/images/photo1.jpg",
-        "data/cities/Tokyo/images/photo2.jpg",
-        "data/cities/Tokyo/images/photo3.jpg"
-    ]
-    build_video(
-        images,
-        title_text="Tokyo, Japan",
-        facts_chunks=[
-            "Population: 37.7M",
-            "Known for: Skytree, Shibuya Crossing",
-            "Vibrant city life and culture"
-        ],
-        output_path="assets/tmp/tokyo_reel.mp4"
-    )
