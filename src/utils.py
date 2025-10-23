@@ -1,3 +1,4 @@
+# utils.py
 from PIL import Image, ImageDraw, ImageFont
 from pathlib import Path
 
@@ -21,7 +22,15 @@ def text_to_image(text, width=1080, height=200, fontsize=80, color="white", bg_c
     lines = text.split("\n")
     y = 10
     for line in lines:
-        w, h = draw.textsize(line, font=font)
+        try:
+            # Updated for Pillow >= 10
+            bbox = draw.textbbox((0,0), line, font=font)
+            w = bbox[2] - bbox[0]
+            h = bbox[3] - bbox[1]
+        except AttributeError:
+            # Fallback for older Pillow
+            w, h = font.getsize(line)
+
         draw.text(((width-w)//2, y), line, font=font, fill=color)
         y += h + 10
 

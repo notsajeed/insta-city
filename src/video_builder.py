@@ -1,14 +1,9 @@
 # src/video_builder.py
 import os
 from pathlib import Path
-from moviepy.editor import (
-    ImageClip,
-    concatenate_videoclips,
-    TextClip,
-    CompositeVideoClip,
-    AudioFileClip,
-)
+from moviepy.editor import ImageClip, concatenate_videoclips, CompositeVideoClip, AudioFileClip
 from moviepy.video.fx.all import resize, fadein, fadeout
+from utils import text_to_image  # your Pillow helper
 
 def build_video(
     image_paths,
@@ -21,7 +16,7 @@ def build_video(
 ):
     """
     Builds a vertical short video (Reels/TikTok style) from images and text.
-    Applies zoom-in and fade effects. Optionally adds background music.
+    Uses Pillow to render title and facts captions, avoiding ImageMagick.
     """
     if not image_paths:
         raise ValueError("No images provided for the video.")
@@ -51,54 +46,16 @@ def build_video(
     # --- Concatenate image clips ---
     seq = concatenate_videoclips(clips, method="compose")
 
-    # --- Title overlay (top) ---
-    try:
-        title = (
-            TextClip(
-                txt=title_text.upper(),
-                fontsize=80,
-                color="white",
-                font="Arial-Bold",
-                stroke_color="black",
-                stroke_width=2,
-                method="caption",
-                size=(w - 100, None)
-            )
-            .set_position(("center", 150))
-            .set_duration(min(3, seq.duration / 2))
-            .fadeout(0.5)
-        )
-    except Exception as e:
-        print(f"[WARN] Could not render title: {e}")
-        title = None
+    # --- Title overlay ---
+    title_img_path = text_to_image(title_text.upper(), width=w-100, height=200, fontsize=80)
+    title_clip = ImageClip(title_img_path).set_duration(min(3, seq.duration/2)).set_position(("center", 150))
 
-    # --- Facts overlay (bottom) ---
-    try:
-        facts = (
-           TextClip(
-            txt="Tokyo, Japan",
-            fontsize=80,
-            color="white",
-            font="Arial",  # must exist on Windows
-            method="caption",  # avoids ImageMagick
-            size=(w-100, None)
-        )
-
-            .set_position(("center", h - 300))
-            .set_duration(seq.duration)
-        )
-    except Exception as e:
-        print(f"[WARN] Could not render facts: {e}")
-        facts = None
+    # --- Facts overlay ---
+    facts_img_path = text_to_image(facts_text, width=w-200, height=400, fontsize=50)
+    facts_clip = ImageClip(facts_img_path).set_duration(seq.duration).set_position(("center", h-400))
 
     # --- Combine layers ---
-    layers = [seq]
-    if title:
-        layers.append(title.set_start(0))
-    if facts:
-        layers.append(facts)
-
-    final = CompositeVideoClip(layers, size=(w, h))
+    final = CompositeVideoClip([seq, title_clip, facts_clip], size=(w, h))
 
     # --- Background music ---
     if bg_music_path and os.path.exists(bg_music_path):
@@ -120,7 +77,7 @@ def build_video(
         threads=4,
         preset="medium",
         bitrate="3000k",
-        logger=None  # cleaner output
+        logger=None
     )
 
     print("[✅] Video build complete.")
@@ -128,11 +85,10 @@ def build_video(
 
 # --- Example usage ---
 if __name__ == "__main__":
-    # Example images
     images = [
-        "data/cities/Tokyo/images/photo1.jpeg",
-        "data/cities/Tokyo/images/photo2.jpeg",
-        "data/cities/Tokyo/images/photo3.jpeg"
+        "data/cities/Tokyo/images/photo1.jpg",
+        "data/cities/Tokyo/images/photo2.jpg",
+        "data/cities/Tokyo/images/photo3.jpg"
     ]
     build_video(
         images,
