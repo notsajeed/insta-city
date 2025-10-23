@@ -6,7 +6,6 @@ from picker import save_posted
 
 BASE_DIR = Path("data/cities")
 
-
 def main():
     # --- Collect data for a random city ---
     data = collect_city()
@@ -16,8 +15,11 @@ def main():
     images = data["images"]
 
     if not images:
-        print(f"[ERROR] No images found for {city_name}. Skipping video creation.")
+        print(f"[ERROR] No images found for {city_name}, skipping.")
         return
+
+    # --- Split wiki summary into chunks for captions ---
+    facts_chunks = wiki_data.get("chunks", []) or [wiki_data.get("summary", "")]
 
     # --- Build the video ---
     output_path = BASE_DIR / city_name / f"{city_name}_reel.mp4"
@@ -25,7 +27,7 @@ def main():
         build_video(
             image_paths=images,
             title_text=wiki_data.get("title", city_name),
-            facts_text=wiki_data.get("summary", ""),
+            facts_chunks=facts_chunks,
             output_path=str(output_path),
             fps=30,
             duration_per_image=3
@@ -42,7 +44,6 @@ def main():
     })
 
     print(f"[✅] Finished processing {city_name}.")
-
 
 if __name__ == "__main__":
     main()

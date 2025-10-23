@@ -3,12 +3,12 @@ import os
 from pathlib import Path
 from moviepy.editor import ImageClip, concatenate_videoclips, CompositeVideoClip, AudioFileClip
 from moviepy.video.fx.all import resize, fadein, fadeout
-from utils import text_to_image  # your Pillow helper
+from utils import text_to_image
 
 def build_video(
     image_paths,
     title_text,
-    facts_text,
+    facts_chunks=None,  # list of text chunks
     output_path="assets/tmp/final.mp4",
     fps=30,
     duration_per_image=3,
@@ -16,7 +16,8 @@ def build_video(
 ):
     """
     Builds a vertical short video (Reels/TikTok style) from images and text.
-    Uses Pillow to render title and facts captions, avoiding ImageMagick.
+    Uses Pillow to render title and facts captions (avoiding ImageMagick).
+    facts_chunks: list of strings to overlay sequentially
     """
     if not image_paths:
         raise ValueError("No images provided for the video.")
@@ -24,14 +25,14 @@ def build_video(
     w, h = 1080, 1920  # portrait
     clips = []
 
-    # --- Create image clips ---
+    # --- Create image clips with zoom/fade effects ---
     for path in image_paths:
         try:
             clip = (
                 ImageClip(path)
                 .set_duration(duration_per_image)
                 .resize(width=w)
-                .fx(resize, lambda t: 1 + 0.02 * t)  # gentle zoom
+                .fx(resize, lambda t: 1 + 0.02 * t)
                 .fx(fadein, 0.5)
                 .fx(fadeout, 0.5)
             )
@@ -43,19 +44,24 @@ def build_video(
     if not clips:
         raise RuntimeError("No valid clips built — check image paths or formats.")
 
-    # --- Concatenate image clips ---
     seq = concatenate_videoclips(clips, method="compose")
 
     # --- Title overlay ---
     title_img_path = text_to_image(title_text.upper(), width=w-100, height=200, fontsize=80)
     title_clip = ImageClip(title_img_path).set_duration(min(3, seq.duration/2)).set_position(("center", 150))
 
-    # --- Facts overlay ---
-    facts_img_path = text_to_image(facts_text, width=w-200, height=400, fontsize=50)
-    facts_clip = ImageClip(facts_img_path).set_duration(seq.duration).set_position(("center", h-400))
+    # --- Facts overlay: sequential chunks ---
+    fact_clips = []
+    if facts_chunks:
+        total_chunks = len(facts_chunks)
+        chunk_duration = seq.duration / total_chunks
+        for i, chunk in enumerate(facts_chunks):
+            fact_img_path = text_to_image(chunk, width=w-200, height=400, fontsize=50)
+            clip = ImageClip(fact_img_path).set_duration(chunk_duration).set_position(("center", h-400)).set_start(i*chunk_duration)
+            fact_clips.append(clip)
 
     # --- Combine layers ---
-    final = CompositeVideoClip([seq, title_clip, facts_clip], size=(w, h))
+    final = CompositeVideoClip([seq, title_clip, *fact_clips], size=(w, h))
 
     # --- Background music ---
     if bg_music_path and os.path.exists(bg_music_path):
@@ -83,6 +89,7 @@ def build_video(
     print("[✅] Video build complete.")
     return output_path
 
+
 # --- Example usage ---
 if __name__ == "__main__":
     images = [
@@ -93,6 +100,10 @@ if __name__ == "__main__":
     build_video(
         images,
         title_text="Tokyo, Japan",
-        facts_text="Population: 37.7M\nKnown for: Skytree, Shibuya Crossing",
+        facts_chunks=[
+            "Population: 37.7M",
+            "Known for: Skytree, Shibuya Crossing",
+            "Vibrant city life and culture"
+        ],
         output_path="assets/tmp/tokyo_reel.mp4"
     )

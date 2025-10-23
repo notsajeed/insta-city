@@ -14,73 +14,67 @@ def safe_search(query, max_results=5):
         return []
 
 
-def fetch_summary(city_ascii, country="", sentences=3):
+def split_text(text, max_chars=100):
     """
-    Fetch Wikipedia summary + page info for a given city.
-    Tries to handle small cities, disambiguation, and missing pages.
-    Returns dict: { title, summary, url }
+    Split text into chunks of roughly max_chars characters.
+    Tries to split at word boundaries.
+    """
+    words = text.split()
+    chunks = []
+    current_chunk = []
+    char_count = 0
+
+    for word in words:
+        char_count += len(word) + 1  # account for space
+        if char_count > max_chars:
+            if current_chunk:
+                chunks.append(" ".join(current_chunk))
+            current_chunk = [word]
+            char_count = len(word) + 1
+        else:
+            current_chunk.append(word)
+
+    if current_chunk:
+        chunks.append(" ".join(current_chunk))
+
+    return chunks
+
+
+def fetch_summary(city_ascii, country="", sentences=5, max_chars_per_chunk=100):
+    """
+    Fetch Wikipedia summary + page info for a city.
+    Returns dict: { title, summary, chunks, url }
     """
     query = f"{city_ascii}, {country}" if country else city_ascii
-
     try:
         results = safe_search(query)
-        if not results:
-            return {
-                "title": city_ascii,
-                "summary": f"No Wikipedia summary found for {city_ascii}.",
-                "url": "",
-            }
-
-        # Prefer exact match first
-        title = next(
-            (r for r in results if city_ascii.lower() in r.lower()), results[0]
-        )
-
+        title = results[0] if results else city_ascii
         summary = wikipedia.summary(title, sentences=sentences)
         page = wikipedia.page(title, auto_suggest=False)
 
-        # If summary is too short, try to extend using related pages
-        if len(summary.split()) < 20:
-            extra = fetch_extended_summary(city_ascii, country, sentences)
-            summary += " " + extra
+        # Split summary into manageable chunks
+        chunks = split_text(summary, max_chars=max_chars_per_chunk)
 
-        return {"title": page.title, "summary": summary, "url": page.url}
+        return {
+            "title": page.title,
+            "summary": summary,
+            "chunks": chunks,  # ready for captions
+            "url": page.url,
+        }
 
     except wikipedia.exceptions.DisambiguationError as e:
         opts = e.options
-        # Prefer options containing the country
-        filtered = [o for o in opts if country.lower() in o.lower()] if country else opts
-        if filtered:
-            return fetch_summary(filtered[0], "", sentences=sentences)
+        # Try to find a match including country
+        if country:
+            for o in opts:
+                if country.lower() in o.lower():
+                    return fetch_summary(o, "", sentences=sentences, max_chars_per_chunk=max_chars_per_chunk)
         # fallback to first option
-        return fetch_summary(opts[0], "", sentences=sentences)
+        return fetch_summary(opts[0], "", sentences=sentences, max_chars_per_chunk=max_chars_per_chunk)
 
     except Exception as e:
         print(f"[WARN] Wikipedia fetch failed for '{city_ascii}': {e}")
-        return {
-            "title": city_ascii,
-            "summary": f"No Wikipedia summary available for {city_ascii}.",
-            "url": "",
-        }
-
-
-def fetch_extended_summary(city_ascii, country="", sentences=2):
-    """
-    Attempt to fetch additional info from related pages like history or landmarks.
-    Useful for small cities with very short main pages.
-    """
-    extra_summary = ""
-    search_terms = [f"{city_ascii} history", f"{city_ascii} landmarks"]
-
-    for term in search_terms:
-        try:
-            s = safe_search(term)
-            if s:
-                extra_summary += " " + wikipedia.summary(s[0], sentences=sentences)
-        except Exception:
-            continue
-
-    return extra_summary.strip()
+        return {"title": city_ascii, "summary": "", "chunks": [], "url": ""}
 
 
 def save_wiki_data(city_name, data, base_dir="data/cities"):
@@ -98,9 +92,9 @@ def save_wiki_data(city_name, data, base_dir="data/cities"):
     return wiki_path
 
 
-# Example standalone test
+# --- Standalone test ---
 if __name__ == "__main__":
-    city, country = "Salem", "United States"
-    data = fetch_summary(city, country)
+    city, country = "Tokyo", "Japan"
+    data = fetch_summary(city, country, sentences=5, max_chars_per_chunk=100)
     save_wiki_data(city, data)
     print(json.dumps(data, indent=2))
