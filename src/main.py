@@ -1,35 +1,48 @@
-# src/main.py (conceptual)
-from picker import pick_city_pandas, save_posted
-from wiki_fetcher import fetch_summary
-from image_fetcher import fetch_images, compose_image_queries
+# src/main.py
+from pathlib import Path
+from collector import collect_city
 from video_builder import build_video
-from poster_graph import upload_video_to_ig
+from picker import save_posted
 
-def run_once():
-    ctx = pick_city_pandas('cities.csv')
-    query_city = ctx['city_ascii']
-    country = ctx['country']
-    wiki = fetch_summary(query_city, country)
-    queries = compose_image_queries(query_city, country, ctx['lat'], ctx['lng'])
-    images, image_meta = fetch_images(queries, needed=5)  # implement provider fallback inside
-    title = wiki['title']
-    facts = wiki['summary'][:200]
-    video_path = build_video(images, title, facts)
-    caption = (f"{title} — Info: {wiki.get('url','Wikipedia')}\n"
-               f"{facts}\nImages: {', '.join([m['provider'] for m in image_meta])}\n#travel #city")
-    res = upload_video_to_ig(video_path, caption)
-    # log posted
-    posted_record = {
-        'id': ctx.get('id'),
-        'city_ascii': query_city,
-        'country': country,
-        'lat': ctx.get('lat'),
-        'lng': ctx.get('lng'),
-        'wiki_url': wiki.get('url'),
-        'image_sources': image_meta,
-        'ig_post_result': res
-    }
-    save_posted(posted_record)
+BASE_DIR = Path("data/cities")
 
-if __name__ == '__main__':
-    run_once()
+
+def main():
+    # --- Collect data for a random city ---
+    data = collect_city()
+    city_name = data["city"]
+    country = data["country"]
+    wiki_data = data["wiki"]
+    images = data["images"]
+
+    if not images:
+        print(f"[ERROR] No images found for {city_name}. Skipping video creation.")
+        return
+
+    # --- Build the video ---
+    output_path = BASE_DIR / city_name / f"{city_name}_reel.mp4"
+    try:
+        build_video(
+            image_paths=images,
+            title_text=wiki_data.get("title", city_name),
+            facts_text=wiki_data.get("summary", ""),
+            output_path=str(output_path),
+            fps=30,
+            duration_per_image=3
+        )
+    except Exception as e:
+        print(f"[ERROR] Failed to build video for {city_name}: {e}")
+        return
+
+    # --- Mark city as posted ---
+    save_posted({
+        "city": city_name,
+        "country": country,
+        "id": None
+    })
+
+    print(f"[✅] Finished processing {city_name}.")
+
+
+if __name__ == "__main__":
+    main()

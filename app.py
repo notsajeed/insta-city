@@ -1,3 +1,3 @@
-import pandas as pd
-file = pd.read_csv("worldcities.csv")
-print(file.head())
+from PIL import Image
+img = Image.new("RGB", (160, 222))
+img.show()

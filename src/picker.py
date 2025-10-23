@@ -27,7 +27,7 @@ def save_posted(record):
     with POSTED_FILE.open('a', encoding='utf-8') as f:
         f.write(json.dumps(record, ensure_ascii=False) + '\n')
 
-def pick_city_pandas(csv_path='worldcities.csv'):
+def pick_city_pandas(csv_path='cities.csv'):
     df = pd.read_csv(csv_path)
     posted = load_posted_set()
     # prefer rows not posted yet
@@ -77,4 +77,4 @@ def pick_city_reservoir(csv_path='cities.csv'):
 
 # Example usage
 if __name__ == '__main__':
-    print(pick_city_pandas())  # or pick_city_reservoir()
+    print(pick_city_pandas())
